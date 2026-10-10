@@ -1,5 +1,6 @@
 # Copyright (C) 2026 Xiaomi Corporation.
 import logging
+import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,6 +40,8 @@ def prepare(cfg: Dict[str, Any]) -> Tuple[Config, LightningDataModule, Lightning
             project=cfg.trainer.pop("project"),
             name=cfg.trainer.pop("exp_name"),
             config=cfg,
+            # WandbLogger defaults save_dir to ".", which overrides WANDB_DIR.
+            save_dir=os.environ.get("WANDB_DIR", "."),
         )
     ]
 

@@ -108,11 +108,12 @@ class JsonDataset(Dataset):
         source_samples = []
         logger.info(f"train set has {len(self.files)} files.")
         for path in tqdm(self.files):
-            count = int(self._read_json(path)["num_frames"])
-            if count <= 0:
-                logger.warning(f"File {path} has no frames, skipping.")
+            traj = self._read_json(path)
+            frames = self._sample_frames(traj, int(traj["num_frames"]))
+            if not frames:
+                logger.warning(f"File {path} has no frames to sample, skipping.")
                 continue
-            source_samples.extend({"file": path, "frame_index": i} for i in range(count))
+            source_samples.extend({"file": path, "frame_index": i} for i in frames)
 
         if not source_samples:
             raise ValueError("training data has no frames")
@@ -121,6 +122,17 @@ class JsonDataset(Dataset):
         logger.info(f"Raw train samples: {len(source_samples)}")
         logger.info(f"Total train samples: {len(samples)}")
         return samples
+
+    @staticmethod
+    def _sample_frames(traj, count):
+        """Frames a sample may start at. Optional ``sample_ranges`` -- inclusive
+        [start, end] pairs -- restricts sampling to those frames; action targets
+        still read the whole trajectory, so a chunk near a range end sees the real
+        future rather than padding. Without the field every frame is used."""
+        ranges = traj.get("sample_ranges")
+        if ranges is None:
+            return range(count)
+        return sorted({i for start, end in ranges for i in range(max(0, start), min(count - 1, end) + 1)})
 
     def _prompt(self, traj):
         prompts = traj.get("instruction", {}).get("general") or []
